@@ -32,6 +32,12 @@ export class User {
   @Column({ nullable: true, type: 'varchar', default: 'example@gmail.com' })
   email: string;
 
+  @Column({ nullable: true, type: 'varchar', default: 'player name' })
+  name: string;
+
+  @Column({ nullable: true, type: 'varchar', default: 'message..' })
+  stateMessage: string;
+
   @Column({ nullable: true, type: 'varchar' })
   profileImage: string;
 

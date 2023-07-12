@@ -30,7 +30,7 @@ export class RoomService {
       .leftJoinAndSelect('room.game', 'game')
       .where('room.id = :id', { id })
       .getOne();
-    console.log(answer, id);
+    //console.log(answer, id);
     return answer;
   }
 
@@ -46,7 +46,7 @@ export class RoomService {
   }
 
   async create(room: RoomInput): Promise<Room> {
-    console.log(room + 'im in room service');
+    //console.log(room + 'im in room service');
     return await this.roomRepository.save({ createdAt: new Date(), ...room });
   }
 

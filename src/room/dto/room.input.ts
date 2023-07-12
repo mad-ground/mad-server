@@ -8,4 +8,6 @@ export class RoomInput {
   host: User;
   @ApiProperty({ description: '플레이어' })
   players: User[];
+  @ApiProperty({ description: '플레이어' })
+  profileImage: string;
 }

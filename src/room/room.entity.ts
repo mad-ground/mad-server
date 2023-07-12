@@ -20,12 +20,12 @@ export class Room {
   @Column({ nullable: false, type: 'varchar' })
   roomName: string;
 
-  @OneToOne(() => User, (user) => user.hostingRoom)
+  @OneToOne(() => User, (user) => user.hostingRoom, { onDelete: 'CASCADE'})
   @JoinColumn()
   host: User;
 
   @JoinColumn()
-  @OneToMany(() => User, (user) => user.room)
+  @OneToMany(() => User, (user) => user.room, { onDelete: 'CASCADE'})
   players: User[];
 
   @Column({ nullable: true, type: 'varchar' })

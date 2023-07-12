@@ -25,11 +25,13 @@ export class Game1Service {
   // }
 
   async create(room: Room): Promise<Game1> {
+    this.game1Repository.delete({room: room});
     return await this.game1Repository.save({
       room: room,
       index: JSON.stringify(
         room.players.map((player) => player.id).sort(() => Math.random() - 0.5),
       ),
+      count: 31,
       playerNum: room.players.length,
       state: 'onGame',
       gameOverUser: '[]',

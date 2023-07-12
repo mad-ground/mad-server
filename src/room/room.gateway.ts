@@ -15,6 +15,7 @@ import { Dependencies } from '@nestjs/common';
 import { RoomInput } from './dto/room.input';
 import { User } from '../user/user.entity';
 import { Game1Service } from '../game1/game1.service';
+import { log } from 'console';
 
 @WebSocketGateway()
 export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -25,6 +26,8 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
   @WebSocketServer() server: Server;
   connectedUsers: Map<string, Socket> = new Map();
+
+  sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   handleConnection(client: Socket) {
     const userId = client.handshake.query.userId as string;
@@ -55,7 +58,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('message')
   handleMessage(client: Socket, message: string) {
     const userId = client.handshake.query.userId as string;
-    console.log(userId + 'connected user id');
+    console.log("connected user id : " + userId);
     // TEST - message -> echo
     this.server.emit('message', message);
     // this.server.emit('message', userId);
@@ -63,16 +66,17 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   //방 생성
   @SubscribeMessage('createRoom')
-  handleCreateRoom(client: Socket, roomName: string) {
-    this.createRoom(client, roomName);
+  handleCreateRoom(client: Socket, roomData: string[]) {
+    this.createRoom(client, roomData[0], roomData[1]);
   }
-  async createRoom(client: Socket, roomName: string) {
+  async createRoom(client: Socket, roomName: string, roomProfile: string) {
     try {
       const userId = client.handshake.query.userId as string;
       const user = await this.userService.findUserById(Number(userId));
       const roomInput = new RoomInput();
       roomInput.roomName = roomName;
       roomInput.host = user;
+      if(roomProfile!='')roomInput.profileImage = roomProfile;
       roomInput.players = [user];
       const room = await this.roomService.create(roomInput);
       client.emit('roomCreated', room.id);
@@ -88,19 +92,22 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
   async EnterRoom(client: Socket, roomId: string) {
     try {
+      console.log("Enter Room : " + roomId);
       const userId = client.handshake.query.userId as string;
       const user = await this.userService.findUserById(Number(userId));
       const room = await this.roomService.findRoomById(Number(roomId));
       user.room = room;
       await this.userService.update(Number(userId), user);
-      const playerSocket = this.getUserSocketsByRoomId(room.players);
+      const updatedroom = await this.roomService.findRoomById(Number(roomId));
+      const playerSocket = this.getUserSocketsByRoomId(updatedroom.players);
       console.log(playerSocket);
       if (playerSocket.length > 0) {
         for (const socketId in playerSocket) {
+          console.log("Enter Room " + roomId);
           playerSocket[socketId].emit('newUser', userId);
         }
       }
-      console.log(room.players);
+      //console.log(room.players);
       client.emit('message', roomId);
     } catch (error) {
       console.error(error);
@@ -116,16 +123,77 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const userId = client.handshake.query.userId as string;
       const user = await this.userService.findUserById(Number(userId));
       const room = await this.roomService.findRoomById(Number(roomId));
+      if (Number(userId) == room.host.id) {
+        await this.roomService.delete(room.id);
+        room.players?.forEach( player => {
+          player.room = null;
+          player.hostingRoom = null;
+          this.userService.update(Number(player.id), player);
+        });
+        const playerSocket = this.getUserSocketsByRoomId(room.players);
+        if (playerSocket.length > 0) {
+          for (const socketId in playerSocket) {
+            console.log("Delete Room " + roomId);
+            playerSocket[socketId].emit('roomDelete', roomId);
+          }
+        }
+      }
       user.room = null;
+      user.hostingRoom = null;
       await this.userService.update(Number(userId), user);
       const playerSocket = this.getUserSocketsByRoomId(room.players);
-      console.log(playerSocket);
+      //console.log(playerSocket);
       if (playerSocket.length > 0) {
         for (const socketId in playerSocket) {
+          console.log("Exit Room " + roomId);
           playerSocket[socketId].emit('exitUser', userId);
         }
       }
-      console.log(room.players);
+      //console.log(room.players);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+  @SubscribeMessage('game_start')
+  handleGameStartRoom(client: Socket, roomId: number) {
+    this.startGameRoom(client, roomId);
+  }
+
+  async startGameRoom(client: Socket, roomId: number) {
+    try {
+      console.log("Start Game Room " + roomId);
+      const room = await this.roomService.findRoomById(roomId);
+      //const game1 = await this.game1Service.create(room);
+      const playerSocket = this.getUserSocketsByRoomId(room.players);
+      //console.log(playerSocket.length);
+      if (playerSocket.length > 0) {
+        for (const socketId in playerSocket) {
+          playerSocket[socketId].emit('loading_startLoading');
+          /*playerSocket[socketId].emit('game1_userInit', {
+            userList: room.players.map((player) => player.id.toString()),
+            userName: room.players.map((player) => player.username),
+          });
+          playerSocket[socketId].emit('game1_turn', {
+            userId: JSON.parse(game1.index)[game1.now].toString(),
+            num: game1.count,
+          });*/
+        }
+        await this.sleep(1000);
+        for(const socketId in playerSocket){
+          playerSocket[socketId].emit('loading_nextGame', {
+            gameNo : 1,
+          });
+        }
+        await this.sleep(3000);
+        //console.log("Loading Finished");
+        for (const socketId in playerSocket) {
+          playerSocket[socketId].emit('loading_gameStart');
+        }
+      }
+      await this.sleep(1000);
+      this.startRoom(client, roomId);
+
+
     } catch (error) {
       console.error(error);
     }
@@ -136,9 +204,11 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.startRoom(client, roomId);
   }
   async startRoom(client: Socket, roomId: number) {
+    console.log("Start Game 1");
     try {
       const room = await this.roomService.findRoomById(roomId);
       const game1 = await this.game1Service.create(room);
+      room.game = [game1];
       const playerSocket = this.getUserSocketsByRoomId(room.players);
       console.log(playerSocket.length);
       if (playerSocket.length > 0) {
@@ -147,6 +217,9 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
             userList: room.players.map((player) => player.id.toString()),
             userName: room.players.map((player) => player.username),
           });
+        }
+        await this.sleep(1000);
+        for (const socketId in playerSocket) {
           playerSocket[socketId].emit('game1_turn', {
             userId: JSON.parse(game1.index)[game1.now].toString(),
             num: game1.count,
@@ -154,6 +227,26 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
       }
     } catch (error) {
+      console.error(error);
+    }
+  }
+  @SubscribeMessage('gameOver_getRank')
+  handleGetRank(client: Socket, roomId: number){
+    this.getRank(client, roomId);
+  }
+  async getRank(client: Socket, roomId: number){
+    try{
+      const userId = client.handshake.query.userId as string;
+      const room = await this.roomService.findRoomById(roomId);
+      const user = await this.userService.findUserById(Number(userId));
+      const playerSocket = this.getUserSocketsByRoomId(room.players);
+      client.emit("gameOver_setRank", {
+        rank: playerSocket.length
+      });
+      user.room = null;
+      user.hostingRoom = null;
+      
+    }catch (error) {
       console.error(error);
     }
   }
@@ -169,12 +262,27 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const userId = client.handshake.query.userId as string;
       const room = await this.roomService.findRoomById(roomId);
       const game1 = room.game[0];
+      console.log(game1);
       const overUser: number[] = JSON.parse(game1.gameOverUser);
       game1.count -= selectedNum;
+      console.log(game1.count);
       //숫자가 0 이하일때 (패배자 선정)
       if (game1.count <= 0) {
         game1.gameOverUser = JSON.stringify(overUser.push(Number(userId)));
         game1.playerNum -= 1;
+
+        // 탈락자 전달
+        const playerSocket = this.getUserSocketsByRoomId(room.players);
+        if (playerSocket.length > 0) {
+          console.log("Game Over");
+          for (const socketId in playerSocket) {
+            playerSocket[socketId].emit('game1_gameOver', {
+              userId: userId,
+            });
+          }
+        }
+        await this.sleep(1000);
+
         //다음 라운드 재셋팅
         if (overUser.length < 2 && game1.playerNum > 2) {
           game1.count = 31;
@@ -213,18 +321,22 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
         await this.game1Service.update(game1.id, game1);
         const playerSocket = this.getUserSocketsByRoomId(room.players);
-        console.log(playerSocket);
+        //console.log(playerSocket);
         if (playerSocket.length > 0) {
           for (const socketId in playerSocket) {
             playerSocket[socketId].emit('game1_userSelection', {
               selection: game1.count,
             });
+          }
+          await this.sleep(1000);
+          for (const socketId in playerSocket) {
             playerSocket[socketId].emit('game1_turn', {
               userId: JSON.parse(game1.index)[game1.now].toString(),
               num: game1.count,
             });
           }
         }
+
       }
     } catch (error) {
       console.error(error);

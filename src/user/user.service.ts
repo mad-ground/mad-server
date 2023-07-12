@@ -21,9 +21,10 @@ export class UserService {
     const answer = await this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.room', 'room')
+      .leftJoinAndSelect('user.hostingRoom', 'hostRoom')
       .where('user.id = :id', { id })
       .getOne();
-    console.log(answer, id);
+    //console.log(answer, id);
     return answer;
     // return await this.userRepository.findOne({ where: { id: id } });
   }
@@ -32,9 +33,10 @@ export class UserService {
     const answer = await this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.room', 'room')
+      .leftJoinAndSelect('user.hostingRoom', 'hostRoom')
       .where('user.username = :username', { username })
       .getOne();
-    console.log(answer, username);
+    //console.log(answer, username);
     return answer;
     // return await this.userRepository.findOne({ where: { username: username } });
   }
@@ -50,15 +52,15 @@ export class UserService {
   }
 
   async update(id: number, user: User): Promise<User> {
-    console.log('user', user);
-    console.log('id', id);
+    //('user', user);
+    //console.log('id', id);
     try {
       await this.userRepository.update(id, user);
       const u = await this.userRepository.findOne({ where: { id: id } });
-      console.log(u);
+      //console.log(u);
     }
     catch (e) {
-      console.log(e)
+      //console.log(e)
     }
     return await this.userRepository.findOne({ where: { id: id } });
   }

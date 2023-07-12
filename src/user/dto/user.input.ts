@@ -11,4 +11,6 @@ export class UserInput {
   email: string;
   @ApiProperty({ type: String, description: '프로필 이미지' })
   profileImage: string;
+  @ApiProperty({ type: String, description: '상태 메세지' })
+  stateMessage: string;
 }
