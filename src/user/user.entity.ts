@@ -1,13 +1,17 @@
-import { RefreshToken } from 'src/auth/refreshToken.entity';
 import {
   Entity,
   Column,
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany,
+  ManyToOne,
+  OneToOne,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
 import { UserInput } from './dto/user.input';
+import { Friend } from '../friend/friend.entity';
+import { Room } from '../room/room.entity';
 
 @Entity()
 export class User {
@@ -22,6 +26,12 @@ export class User {
 
   @Column({ nullable: false, type: 'varchar' })
   name: string;
+
+  @ManyToOne(() => Room, (room) => room.players, { nullable: true })
+  room: Room;
+
+  @OneToOne(() => Room, (room) => room.host, { nullable: true })
+  hostingRoom: Room;
 
   @Column({ nullable: true, type: 'varchar', default: 'example@gmail.com' })
   email: string;
@@ -42,4 +52,8 @@ export class User {
 
   @Column({ default: null, nullable: true })
   deletedAt: Date;
+
+  @ManyToMany(() => Friend)
+  @JoinTable()
+  friends: Friend[];
 }

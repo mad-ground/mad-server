@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
+//Controller.Spec -> Controller의 테스트 스펙을 정의하는 파일
+
 describe('AppController', () => {
   let appController: AppController;
 

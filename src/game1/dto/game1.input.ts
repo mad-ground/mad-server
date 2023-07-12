@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 //dto -> 데이터 전송을 위해 사용되는 객체 
-export class UserInput {
+export class Game1Input {
   @ApiProperty({ type: String, description: '유저 ID' })
   username: string;
   @ApiProperty({ type: String, description: '비밀번호' })

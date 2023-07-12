@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 
+//typeorm을 사용하여 MySQL 데이터베이스와의 연결 설정
 export const AppDataSource = new DataSource({
   type: 'mysql',
   host: 'localhost',
